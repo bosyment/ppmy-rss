@@ -13,7 +13,7 @@ from feedgen.feed import FeedGenerator
 # 配置区域
 # ------------------------------
 BASE_URL = "https://www.ppmy.cn/news"
-MAX_TRY = 50           # 每次抓取最多尝试多少个编号
+MAX_TRY = 300           # 每次抓取最多尝试多少个编号
 LAST_ID_FILE = "last_id.json"
 DOCS_DIR = "docs"
 RSS_FILE = "ppmy_rss.xml"
