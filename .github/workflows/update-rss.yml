@@ -9,33 +9,27 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  update:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: 检出仓库
         uses: actions/checkout@v4
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
         with:
-          persist-credentials: true
+          python-version: '3.x'
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.11"
+      - name: 安装依赖
+        run: pip install -r requirements.txt
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+      - name: 运行爬虫
+        run: python crawler.py
 
-      - name: Run crawler
-        run: |
-          mkdir -p docs
-          python crawler.py
-
-      - name: Commit generated RSS
+      - name: 提交并推送更新
         uses: EndBug/add-and-commit@v9
         with:
           author_name: "ppmy-rss-bot"
           author_email: "41898282+github-actions[bot]@users.noreply.github.com"
           message: "自动更新 RSS: $(date -u +'%Y-%m-%d %H:%M:%S') UTC"
-          add: "docs/ppmy_rss.xml"
