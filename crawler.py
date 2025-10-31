@@ -94,7 +94,7 @@ def main():
     else:
         rss_text = fg.rss_str(pretty=True)
         with open(rss_path, "w", encoding="utf-8") as f:
-            f.write(rss_text)
+            f.write(rss_text.decode("utf-8"))
         print("[INFO] 生成 RSS 到：", rss_path)
         write_last_id(new_last_id)
         print(f"[INFO] 更新 last_id 为 {new_last_id}")
