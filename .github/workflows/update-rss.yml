@@ -2,7 +2,7 @@ name: update ppmy rss
 
 on:
   schedule:
-    - cron: '0 2 * * *'  # 每天 10:00（北京时间）执行
+    - cron: '0 * * * *'  # 每天 10:00（北京时间）执行
   workflow_dispatch: 
 
 permissions:
