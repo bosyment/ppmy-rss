@@ -1,0 +1,12 @@
+{
+  "base_url": "https://www.ppmy.cn",
+  "article_path_pattern": "/news/{id}.html",
+  "list_pages": ["/","/newslist.html","/news_2.html"],
+  "scan_mode": "hybrid",
+  "scan_start": 1540500,
+  "scan_window": 300,
+  "max_consecutive_failures": 30,
+  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 ppmy-rss-bot/1.0",
+  "delay_seconds": 1.5,
+  "max_items": 50
+}
