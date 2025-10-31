@@ -9,27 +9,38 @@ permissions:
   contents: write
 
 jobs:
-  update:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 检出仓库
+      - name: Checkout repo (浅克隆加速)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
-      - name: 设置 Python
+      - name: 设置 Python 环境
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.11'
 
-      - name: 安装依赖
-        run: pip install -r requirements.txt
+      - name: 缓存 pip 依赖
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: 安装依赖（仅首次执行慢）
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: 运行爬虫
         run: python crawler.py
 
-      - name: 提交并推送更新
+      - name: 提交更新
         uses: EndBug/add-and-commit@v9
         with:
-          author_name: "ppmy-rss-bot"
-          author_email: "41898282+github-actions[bot]@users.noreply.github.com"
           message: "自动更新 RSS: $(date -u +'%Y-%m-%d %H:%M:%S') UTC"
+          add: 'ppmy_rss.xml'
