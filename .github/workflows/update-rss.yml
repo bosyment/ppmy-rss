@@ -1,0 +1,38 @@
+name: update ppmy rss
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 每天 10:00（北京时间）执行
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run crawler
+        run: |
+          mkdir -p docs
+          python crawler.py
+
+      - name: Commit generated RSS
+        uses: EndBug/add-and-commit@v9
+        with:
+          author_name: "ppmy-rss-bot"
+          author_email: "41898282+github-actions[bot]@users.noreply.github.com"
+          message: "自动更新 RSS: $(date -u +'%Y-%m-%d %H:%M:%S') UTC"
+          add: "docs/ppmy_rss.xml"
