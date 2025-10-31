@@ -6,23 +6,15 @@ import time
 import random
 import os
 
-# 基础 URL
 BASE_URL = "https://www.ppmy.cn/news/"
 ARTICLE_URL_TEMPLATE = BASE_URL + "{}.html"
-
-# 文件
 RSS_FILE = "ppmy_rss.xml"
 LAST_ID_FILE = "last_id.txt"
-
-# User-Agent 伪装浏览器
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 }
+MAX_TRY = 20  # 每次最多尝试抓取文章数
 
-# 每次最多尝试抓取的文章数量
-MAX_TRY = 20
-
-# 读取上次抓取的最后文章编号
 def read_last_id():
     if os.path.exists(LAST_ID_FILE):
         with open(LAST_ID_FILE, "r") as f:
@@ -32,12 +24,10 @@ def read_last_id():
                 return 0
     return 0
 
-# 更新最后抓取编号
 def update_last_id(last_id):
     with open(LAST_ID_FILE, "w") as f:
         f.write(str(last_id))
 
-# 抓取文章内容和标题
 def fetch_article(article_id, session):
     url = ARTICLE_URL_TEMPLATE.format(article_id)
     try:
@@ -46,11 +36,9 @@ def fetch_article(article_id, session):
             return None
         soup = BeautifulSoup(resp.text, "html.parser")
 
-        # 解析标题
         title_tag = soup.find("title")
         title = title_tag.get_text(strip=True) if title_tag else f"文章 {article_id}"
 
-        # 解析正文（可根据实际页面调整）
         content_tag = soup.find("div", class_="article-content")
         if not content_tag:
             content_tag = soup.find("div", id="content")
@@ -62,7 +50,6 @@ def fetch_article(article_id, session):
         print(f"抓取文章 {article_id} 出错: {e}")
         return None
 
-# 主函数
 def main():
     last_id = read_last_id()
     print(f"上次抓取文章编号: {last_id}")
@@ -70,7 +57,6 @@ def main():
     session = requests.Session()
     articles = []
 
-    # 增量抓取
     for i in range(last_id + 1, last_id + 1 + MAX_TRY):
         print(f"尝试抓取文章 {i} ...")
         art = fetch_article(i, session)
@@ -78,20 +64,16 @@ def main():
             print(f"文章 {i} 不存在或无法访问，停止抓取")
             break
         articles.append(art)
-
-        # 随机延时 1~3 秒，防止被封
         time.sleep(random.uniform(1, 3))
 
     if not articles:
         print("没有新文章可抓取")
         return
 
-    # 更新最后抓取编号
     new_last_id = max(art["id"] for art in articles)
     update_last_id(new_last_id)
     print(f"更新 last_id 为 {new_last_id}")
 
-    # 生成 RSS
     fg = FeedGenerator()
     fg.title("PPMY 新闻订阅")
     fg.link(href=BASE_URL)
@@ -99,7 +81,6 @@ def main():
     fg.language("zh-cn")
     fg.lastBuildDate(datetime.datetime.utcnow())
 
-    # 文章条目
     for art in articles:
         fe = fg.add_entry()
         fe.id(str(art["id"]))
