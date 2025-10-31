@@ -1,0 +1,1337 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>PPMY 新闻订阅</title><link>https://www.ppmy.cn/news/</link><description>自动抓取 https://www.ppmy.cn/news/ 的最新文章</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>zh-cn</language><lastBuildDate>Fri, 31 Oct 2025 07:15:54 +0000</lastBuildDate><item><title>面试官：为什么 MySQL 不推荐使用 join？</title><link>https://www.ppmy.cn/news/1540001.html</link><description>1、对于mysql，不推荐使用子查询和join是因为本身join的效率就是硬伤，一旦数据量很大效率就很难保证，强烈推荐分别根据索引单表取数据，然后在程序里面做join，merge数据。
+2、子查询就更别用了，效率太差，执行子查询时，MYSQL需要创建临时表，查询完毕后再删除这些临时表，所以，子查询的速度会受到一定的影响，这里多了一个创建和销毁临时表的过程。
+3、如果是JOIN的话，它是走嵌套查询的。小表驱动大表，且通过索引字段进行关联。如果表记录比较少的话，还是OK的。大的话业务逻辑中可以控制处理。
+4、数据库是最底层的，瓶颈往往是数据库。建议数据库只是作为数据store的工具，而不要添加业务上去。
+一、应用层关联的优势
+让缓存的效率更高。许多应用程序可以方便地缓存单表查询对应的结果对象。如果关联中的某个表发生了变化，那么就无法使用查询缓存了，而拆分后，如果某个表很少改变，那么基于该表的查询就可以重复利用查询缓存结果了。
+将查询分解后，执行单个查询可以减少锁的竞争。
+在应用层做关联，可以更容易对数据库进行拆分，更容易做到高性能和可扩展。
+查询本身效率也可能会有所提升。查询id集的时候，使用IN（）代替关联查询，可以让MySQL按照ID顺序进行查询，这可能比随机的关联要更高效。
+可以减少冗余记录的查询。在应用层做关联查询，意味着对于某条记录应用只需要查询一次，而在数据库中做关联查询，则可能需
+要重复地访问一部分数据。从这点看，这样的重构还可能会减少网络和内存的消艳。
+更进一步，这样做相当于在应用中实现了哈希关联，而不是使用MySQL的嵌套循环关联。某些场景哈希关联的效率要高很多。
+二、应用层关联的使用场景
+当应用能够方便地缓存单个查询的结果的时候
+当可以将数据分布到不同的MySQL服务器上的时候
+当能够使用IN（）的方式代替关联查询的时候
+并发场景多，DB查询频繁，需要分库分表
+三、不推荐使用join的原因
+1、DB承担的业务压力大，能减少负担就减少。当表处于百万级别后，join导致性能下降；
+2、分布式的分库分表。这种时候是不建议跨库join的。目前mysql的分布式中间件，跨库join表现不良。
+3、修改表的schema，单表查询的修改比较容易，join写的sql语句要修改，不容易发现，成本比较大，当系统比较大时，不好维护。
+四、不使用join的解决方案
+在业务层，单表查询出数据后，作为条件给下一个单表查询。也就是子查询。会担心子查询出来的结果集太多。mysql对in的数量没有限制，但是mysql限制整条sql语句的大小。
+通过调整参数max_allowed_packet ，可以修改一条sql的最大值。建议在业务上做好处理，限制一次查询出来的结果集是能接受的。
+五、join查询的优势
+关联查询的好处是可以做分页，可以用副表的字段做查询条件，在查询的时候，将副表匹配到的字段作为结果集，用主表去in它。
+但是问题来了，如果匹配到的数据量太大就不行了，也会导致返回的分页记录跟实际的不一样，解决的方法可以交给前端，一次性查询，让前端分批显示就可以了，这种解决方案的前提是数据量不太，因为sql本身长度有限。</description><guid isPermaLink="false">https://www.ppmy.cn/news/1540001.html</guid><pubDate>Fri, 31 Oct 2025 07:15:54 +0000</pubDate></item><item><title>接口模式、工厂模式、模板方法模式的日志文件系统</title><link>https://www.ppmy.cn/news/1540002.html</link><description>日志文件系统
+编写一个与具体业务无关的示例代码。这个示例代码主要体现以下几个设计思想和模式：
+接口模式（Interface Pattern）
+：定义接口类，并让具体实现类去实现该接口的功能。
+工厂模式（Factory Pattern）
+：根据不同条件动态生成不同的对象实例。
+模板方法模式（Template Method Pattern）
+：父类定义方法的结构，子类实现具体逻辑。
+多线程处理
+：创建子类继承自
+QThread
+，并实现线程中的具体逻辑。
+示例代码设计：
+核心逻辑
+：一个简单的日志系统，根据日志等级（如"info"、“warning”、“error”）动态生成不同的日志处理线程，并执行相应的日志输出。
+工厂模式
+：工厂方法根据日志类型生成不同的处理线程。
+模板方法模式
+：每个日志处理线程继承自基类，基类定义通用处理逻辑，子类实现具体日志输出。
+示例代码
+1. 日志处理接口定义
+#ifndef LOGHELPERINTERFACE_H
+#define LOGHELPERINTERFACE_H#include &lt;QString&gt;
+#include &lt;QVector&gt;class LogHelperInterface
+{
+public:virtual ~LogHelperInterface() {}// 记录日志virtual void logMessage(const QString&amp; message) = 0;
+};#endif // LOGHELPERINTERFACE_H
+2. 基础日志引擎类
+#ifndef LOGENGINE_H
+#define LOGENGINE_H#include &lt;QMap&gt;
+#include &lt;QThread&gt;
+#include "loghelperinterface.h"class LogEngine : public QObject
+{Q_OBJECT
+public:LogEngine(int logID, LogHelperInterface* helper);~LogEngine();void logMessage(const QString&amp; message);static LogEngine* getEngine(const int&amp; logID);private:static QMap&lt;int, LogEngine*&gt; m_logMap;  // 用于存储不同日志引擎实例int m_logID;LogHelperInterface* m_pHelper;
+};#endif // LOGENGINE_H
+3. 基础日志处理线程类
+#ifndef LOGTHREADBASE_H
+#define LOGTHREADBASE_H#include &lt;QThread&gt;
+#include "loghelperinterface.h"class LogThreadBase : public QThread
+{Q_OBJECT
+public:explicit LogThreadBase(LogHelperInterface* helper, QObject* parent = nullptr);static LogThreadBase* createLogHandler(const QString&amp; logType, LogHelperInterface* helper);virtual void handleLog(const QString&amp; message) = 0;protected:LogHelperInterface* m_logHelper;
+};#endif // LOGTHREADBASE_H
+4. 工厂模式实现
+#include "logthreadbase.h"
+#include "infologthread.h"
+#include "warninglogthread.h"
+#include "errorlogthread.h"LogThreadBase* LogThreadBase::createLogHandler(const QString&amp; logType, LogHelperInterface* helper)
+{if (logType == "info") {return new InfoLogThread(helper);} else if (logType == "warning") {return new WarningLogThread(helper);} else if (logType == "error") {return new ErrorLogThread(helper);}return nullptr;
+}
+5. 基础日志处理线程类实现
+#include "logthreadbase.h"LogThreadBase::LogThreadBase(LogHelperInterface* helper, QObject* parent): QThread(parent), m_logHelper(helper)
+{
+}
+6. InfoLogThread 具体实现
+#ifndef INFOLOGTHREAD_H
+#define INFOLOGTHREAD_H#include "logthreadbase.h"class InfoLogThread : public LogThreadBase
+{Q_OBJECT
+public:explicit InfoLogThread(LogHelperInterface* helper, QObject* parent = nullptr);void handleLog(const QString&amp; message) override;
+};#endif // INFOLOGTHREAD_H
+#include "infologthread.h"
+#include &lt;QDebug&gt;InfoLogThread::InfoLogThread(LogHelperInterface* helper, QObject* parent): LogThreadBase(helper, parent)
+{
+}void InfoLogThread::handleLog(const QString&amp; message)
+{qDebug() &lt;&lt; "INFO: " &lt;&lt; message;m_logHelper-&gt;logMessage("INFO: " + message);
+}
+7. WarningLogThread 具体实现
+#ifndef WARNINGLOGTHREAD_H
+#define WARNINGLOGTHREAD_H#include "logthreadbase.h"class WarningLogThread : public LogThreadBase
+{Q_OBJECT
+public:explicit WarningLogThread(LogHelperInterface* helper, QObject* parent = nullptr);void handleLog(const QString&amp; message) override;
+};#endif // WARNINGLOGTHREAD_H
+#include "warninglogthread.h"
+#include &lt;QDebug&gt;WarningLogThread::WarningLogThread(LogHelperInterface* helper, QObject* parent): LogThreadBase(helper, parent)
+{
+}void WarningLogThread::handleLog(const QString&amp; message)
+{qDebug() &lt;&lt; "WARNING: " &lt;&lt; message;m_logHelper-&gt;logMessage("WARNING: " + message);
+}
+8. ErrorLogThread 具体实现
+#ifndef ERRORLOGTHREAD_H
+#define ERRORLOGTHREAD_H#include "logthreadbase.h"class ErrorLogThread : public LogThreadBase
+{Q_OBJECT
+public:explicit ErrorLogThread(LogHelperInterface* helper, QObject* parent = nullptr);void handleLog(const QString&amp; message) override;
+};#endif // ERRORLOGTHREAD_H
+#include "errorlogthread.h"
+#include &lt;QDebug&gt;ErrorLogThread::ErrorLogThread(LogHelperInterface* helper, QObject* parent): LogThreadBase(helper, parent)
+{
+}void ErrorLogThread::handleLog(const QString&amp; message)
+{qDebug() &lt;&lt; "ERROR: " &lt;&lt; message;m_logHelper-&gt;logMessage("ERROR: " + message);
+}
+9. 日志记录实现类
+#ifndef SIMPLELOGHELPER_H
+#define SIMPLELOGHELPER_H#include "loghelperinterface.h"
+#include &lt;QDebug&gt;class SimpleLogHelper : public LogHelperInterface
+{
+public:void logMessage(const QString&amp; message) override{// 这里我们简单将日志输出到控制台qDebug() &lt;&lt; "Logging message: " &lt;&lt; message;}
+};#endif // SIMPLELOGHELPER_H
+10. 主函数示例
+#include &lt;QCoreApplication&gt;
+#include "logengine.h"
+#include "simpleloghelper.h"
+#include "logthreadbase.h"int main(int argc, char *argv[])
+{QCoreApplication a(argc, argv);SimpleLogHelper logHelper;// 创建日志引擎LogEngine* logEngine = new LogEngine(1, &amp;logHelper);// 生成不同的日志处理线程LogThreadBase* infoLogThread = LogThreadBase::createLogHandler("info", &amp;logHelper);LogThreadBase* warningLogThread = LogThreadBase::createLogHandler("warning", &amp;logHelper);LogThreadBase* errorLogThread = LogThreadBase::createLogHandler("error", &amp;logHelper);// 处理日志infoLogThread-&gt;handleLog("This is an info message");warningLogThread-&gt;handleLog("This is a warning message");errorLogThread-&gt;handleLog("This is an error message");return a.exec();
+}
+总结
+接口模式
+：
+LogHelperInterface
+是接口，
+SimpleLogHelper
+实现了这个接口，用于处理日志输出。
+工厂模式
+：
+LogThreadBase::createLogHandler
+工厂方法根据传入的日志类型动态生成不同的日志处理线程（如
+InfoLogThread
+，
+WarningLogThread
+，
+ErrorLogThread
+）。
+模板方法模式
+：
+LogThreadBase
+作为抽象基类，定义了日志处理的通用接口，具体实现由子类完成。
+通过这个示例，展示了如何使用这些设计模式来构建一个灵活、可扩展的系统。</description><guid isPermaLink="false">https://www.ppmy.cn/news/1540002.html</guid><pubDate>Fri, 31 Oct 2025 07:15:54 +0000</pubDate></item><item><title>Axure重要元件三——中继器修改数据</title><link>https://www.ppmy.cn/news/1540003.html</link><description>亲爱的小伙伴，在您浏览之前，烦请关注一下，在此深表感谢！
+课程主题：中继器修改数据
+主要内容：显示编辑内容、表格赋值、修改数据
+应用场景：更新行、表单数据行修改
+案例展示：
+正文内容：
+步骤一：制作修改页面，录入图中各表单项，并分别进行文本框的命名，方便下一步赋值
+1
+2
+3
+步骤二：组合这个修改页面，并命名“修改页面”，交互：载入时隐藏这个组合
+4
+步骤三：添加中继器内修改按键的交互，单击时——显示修改页面组合
+5
+步骤四：为修改页面每一个文本框进行赋值，并标记行；赋值的目的是当用户点击修改按键后，显示出来的页面会在文本框内显示原来的数据，用户可根据需要进行修改；
+6
+7
+8
+步骤五：修改页面的确定按钮添加交互，单击时——隐藏修改页面
+9
+步骤六：继续添加交互，此时思考逻辑是要将修改页面录入的数据赋值给标记的行，那么操作步骤是更新行——已标记——赋值
+10
+11
+12
+本课小结：中继器修改数据课程难点一是取出已录入的数据，需要将标记行的每一列数据的文本取出text，赋值给文本框；难点二赋值给中继器，将文本框填入的数据去变更中继器元件文字内容；
+推荐继续学习课程：
+中继器实现时间读取和修改-CSDN博客
+连续课程直通车
+Axure重要元件三——中继器-CSDN博客
+Axure重要元件三——中继器表单制作-CSDN博客
+Axure重要元件三——中继器查询和统计-CSDN博客
+Axure重要元件三——中继器时间排序-CSDN博客
+Axure重要元件三——中继器添加数据-CSDN博客
+Axure重要原件三——中继器删除数据-CSDN博客
+Axure重要元件三——中继器修改数据-CSDN博客
+Axure重要元件三——中继器函数-CSDN博客
+如有其他相关问题，欢迎私信沟通，关注  结构化知识课堂-CSDN博客
+明天的产品大咖就是你，创作不易，麻烦关注一下，点赞+收藏、感谢大家！</description><guid isPermaLink="false">https://www.ppmy.cn/news/1540003.html</guid><pubDate>Fri, 31 Oct 2025 07:15:54 +0000</pubDate></item><item><title>探索 Spring AI：Java 开发者的 AI 应用开发新利器</title><link>https://www.ppmy.cn/news/1540004.html</link><description>在当今这个由人工智能驱动的时代，AI 技术正在以前所未有的速度改变着我们的工作和生活方式。对于 Java 开发者来说，将 AI 能力集成到他们的应用程序中，已经成为了一个迫切的需求。阿里云开源的 Spring AI Alibaba 框架，正是为了满足这一需求而生。在这篇文章中，我们将一起探索 Spring AI Alibaba，了解它的起源、核心特性，并通过一个简单的示例来展示其在 AI 应用开发中的便利性。
+Spring AI Alibaba 的诞生
+Spring AI Alibaba 是由阿里云开源的一个 AI 应用开发框架，旨在帮助 Java 开发者快速构建 AI 应用。这个框架的诞生背景是生成式 AI 与大模型在过去一年的快速发展。阿里巴巴和 Spring 官方一直保持着非常成功的合作，从微服务时代的 Spring Cloud Alibaba 到如今的 Spring AI Alibaba，两者的合作不断深化，共同推动 Java 生态的发展。
+核心特性
+Spring AI Alibaba 提供了一系列核心特性，以加速和简化 Java 智能体应用的开发：
+低门槛的智能体开发框架
+：使用 Spring AI Alibaba 开发应用就像开发一个普通的 Spring Boot 应用，极大地降低了理解成本。
+通用开发范式的抽象
+：框架对 AI 智能体应用的通用开发范式做了很好的抽象，从原子能力层次到高层次抽象，如智能体编排、对话记忆等。
+与通义系列模型的深度适配
+：框架默认与阿里云通义系列模型做了深度适配，并提供了从部署到运维的最佳实践。
+示例实践：Hello World
+让我们通过一个简单的 “Hello World” 示例来体验 Spring AI Alibaba 的便利性。
+1. 添加依赖
+首先，在你的 Maven 项目中添加以下依赖：
+&lt;
+dependency
+&gt;
+&lt;
+groupId
+&gt;
+com.alibaba.ai
+&lt;/
+groupId
+&gt;
+&lt;
+artifactId
+&gt;
+spring-ai-alibaba-starter
+&lt;/
+artifactId
+&gt;
+&lt;
+version
+&gt;
+1.0.0-M2
+&lt;/
+version
+&gt;
+&lt;/
+dependency
+&gt;
+2. 配置 application.yaml
+接下来，配置
+application.yaml
+文件，指定 API-KEY（可通过访问阿里云百炼模型服务平台获取）：
+spring
+:
+ai
+:
+dashscope
+:
+api-key
+:
+$
+{
+AI_DASHSCOPE_API_KEY
+}
+获取 API-KEY 的详细步骤，请参考 如何获取 API Key。
+3. 注入智能体代理 ChatClient
+最后，注入智能体代理
+ChatClient
+并创建一个简单的控制器来处理聊天请求：
+@RestController
+public
+class
+ChatController
+{
+private
+final
+ChatClient
+chatClient
+;
+public
+ChatController
+(
+ChatClient
+.
+Builder
+builder
+)
+{
+this
+.
+chatClient
+=
+builder
+.
+build
+(
+)
+;
+}
+@GetMapping
+(
+"/chat"
+)
+public
+String
+chat
+(
+String
+input
+)
+{
+return
+this
+.
+chatClient
+.
+prompt
+(
+)
+.
+user
+(
+input
+)
+.
+call
+(
+)
+.
+content
+(
+)
+;
+}
+}
+通过这个简单的示例，我们可以看到使用 Spring AI Alibaba 开发 AI 应用的便利性。开发者无需深入了解 AI 模型的细节，只需通过简单的配置和代码即可实现与 AI 模型的交互。
+总结
+Spring AI Alibaba 为 Java 开发者提供了一个强大的工具，使得 AI 应用开发变得更加简单和高效。随着 AI 技术的不断进步，Spring AI Alibaba 将继续扩展其功能，帮助开发者构建更加智能和强大的应用程序。如果你对 Spring AI Alibaba 感兴趣，可以访问其 官方网站 和 GitHub 仓库 了解更多信息。获取 API-KEY 的详细步骤，请点击 这里 复制链接到浏览器打开。</description><guid isPermaLink="false">https://www.ppmy.cn/news/1540004.html</guid><pubDate>Fri, 31 Oct 2025 07:15:54 +0000</pubDate></item><item><title>广州市孤独症康复训练学校，携手迈向未来</title><link>https://www.ppmy.cn/news/1540005.html</link><description>在繁华的广州市，隐藏着一家充满爱与希望的孤独症康复训练学校——星贝育园康复中心。作为全国规模较大的广泛性发育障碍全托寄宿制儿童康复训练机构，星贝育园以其专业的康复理念、科学的训练方法以及显著的康复效果，成为了无数特殊儿童家庭的避风港和希望的灯塔。
+星贝育园不仅仅是一所学校，更是一个充满爱与关怀的大家庭。在这里，每个孩子都能得到最贴心的照顾和最专业的指导。学校深知每位家长的焦虑与期盼，因此，星贝育园成为了全国唯一一家与家长签署康复效果保障协议的康复机构。这一举措不仅彰显了学校的专业自信，更让家长们看到了孩子康复的希望，减轻了他们的心理负担。
+为了确保每位孩子都能得到充分的关注和个性化的指导，星贝育园每个校区都严格限额招收50名学生。这样的设置，让每个孩子都能在专业的康复师和老师的陪伴下，逐步走出孤独，迈向更加光明的未来。
+针对孤独症（自闭症）、ADHD、谱系障碍、发育迟缓、注意力缺失等特殊儿童，星贝育园团队独创了CBM干预法。这一方法包括培养安坐能力（C）、意识建立（B）和精神飘移行为干预（M）三个部分，旨在通过系统的训练，帮助特殊儿童逐步具备认知学习的状态，从而解决他们的学习能力问题。
+在星贝育园，小龄自闭症儿童（2-4岁）通过CBM干预法的训练，70%以上的孩子能够实现“完全摘帽”，即摆脱孤独症的困扰，回归正常的生活和学习。而对于7岁以上的中重度自闭症儿童，星贝育园则通过个性化的干预措施，帮助他们尽快回归家庭、回归学校、回归社会。在这里，孩子们不仅学会了如何与人交往，更学会了如何独立生活，为他们的未来打下了坚实的基础。
+星贝育园不仅注重孩子的康复训练，更关注他们的心理健康和全面发展。学校定期举办各种丰富多彩的活动，如绘画、音乐、体育等，旨在培养孩子的兴趣爱好和社交能力。在这里，每个孩子都能找到属于自己的舞台，展现自己的才华和潜力。
+同时，星贝育园还注重与家长的沟通与合作。学校定期举办家长会、讲座等活动，帮助家长了解孩子的康复进展和成长情况，同时也为家长提供心理支持和建议。这种紧密的家校合作不仅有助于孩子的康复，也让家长感受到了温暖与力量。
+总之，星贝育园康复中心以其卓越的教育理念、专业的康复团队、显著的康复效果以及全面的发展理念，成为了广州市孤独症康复训练学校的璀璨明珠。在这里，每个孩子都能得到最贴心的照顾和最专业的指导，携手迈向更加光明的未来。星贝育园，用爱与希望点亮了无数特殊儿童家庭的未来之路。</description><guid isPermaLink="false">https://www.ppmy.cn/news/1540005.html</guid><pubDate>Fri, 31 Oct 2025 07:15:54 +0000</pubDate></item><item><title>掌握 Vue.js 中的 Axios：解密字符串插值和 URL 构建20241011</title><link>https://www.ppmy.cn/news/1540006.html</link><description>掌握 Vue.js 中的 Axios：解密字符串插值和 URL 构建
+在使用 Vue.js 进行前端开发时，Axios 是一个常用的 HTTP 客户端库，用于与后端服务器进行通信。然而，对于初学者来说，如何正确编写 Axios 请求，特别是在处理动态 URL 和参数传递时，可能会感到困惑。例如，什么时候使用双引号
+""
+、反引号 ``、加号
++id
+，或者
+${}
+进行参数替换？本文将深入解析这些字符串构建方法，并结合接口定义和对应的 Axios 代码，帮助你更清晰地理解如何编写最佳实践的代码。
+目录
+理解基本概念
+什么是 API 端点？
+什么是 Axios？
+字符串构建方法详解
+双引号和单引号
+字符串拼接
+模板字面量
+接口定义与 Axios 代码对应示例
+增加公告接口
+修改公告接口
+获取公告列表接口
+删除公告接口
+Axios 请求的最佳实践
+总结
+理解基本概念
+什么是 API 端点？
+API 端点（API Endpoint）
+是指应用程序可以访问的一个特定的 URL，通过这个 URL，前端应用可以与后端服务器进行通信，发送请求和接收响应。简单来说，API 端点就是后端提供给前端调用的接口地址。
+什么是 Axios？
+Axios
+是一个基于 Promise 的 HTTP 客户端，可用于浏览器和 Node.js。它使我们能够轻松地向后端发送异步请求，处理响应数据。Axios 支持发送各种类型的请求（GET、POST、PUT、DELETE 等），并且可以处理请求头、请求参数、超时设置等。
+字符串构建方法详解
+在 JavaScript 中，构建字符串的方法主要有以下几种：
+双引号和单引号
+用法：
+定义静态字符串。
+示例：
+const
+url
+=
+"/admin/notice"
+;
+适用场景：
+当字符串内容是固定的，不包含变量或动态部分时。
+字符串拼接
+用法：
+使用
++
+操作符将字符串和变量连接起来。
+示例：
+const
+id
+=
+14
+;
+const
+url
+=
+"/admin/notice/"
++
+id
+;
+适用场景：
+当需要将变量插入到字符串中，但变量较少，且不介意可读性时。
+模板字面量
+用法：
+使用反引号 `` 定义字符串，可以在其中使用
+${}
+插入变量或表达式。
+示例：
+const
+id
+=
+14
+;
+const
+url
+=
+`
+/admin/notice/
+${
+id
+}
+`
+;
+适用场景：
+当字符串中包含多个变量，或希望代码更清晰、更易读时。
+接口定义与 Axios 代码对应示例
+下面我们将结合具体的接口定义，展示如何编写对应的 Axios 请求代码。
+注意：
+为了保护隐私，本文中的域名已作脱敏处理，使用
+your-api-domain.com
+代替实际域名。
+增加公告接口
+接口定义
+接口 URL：
+https://your-api-domain.com/admin/notice
+请求方式：
+POST
+请求头参数：
+参数名
+示例值
+是否必填
+参数描述
+token
+2f…5e
+是
+用户 token
+请求体参数：
+参数名
+示例值
+是否必填
+参数描述
+title
+公告标题
+是
+公告标题
+content
+公告内容
+是
+公告内容
+Axios 代码
+import
+axios
+from
+'axios'
+;
+export
+function
+createNotice
+(
+data
+)
+{
+return
+axios
+.
+post
+(
+'/admin/notice'
+,
+data
+,
+{
+headers
+:
+{
+token
+:
+'你的用户token'
+,
+'Content-Type'
+:
+'application/x-www-form-urlencoded'
+}
+}
+)
+;
+}
+解析
+URL 是静态的：
+使用双引号
+"/admin/notice"
+。
+请求方式：
+POST
+方法。
+请求头：
+包含
+token
+，以及
+Content-Type
+。
+请求体：
+包含
+title
+和
+content
+，传入
+data
+对象。
+修改公告接口
+接口定义
+接口 URL：
+https://your-api-domain.com/admin/notice/:id
+请求方式：
+POST
+路径参数：
+参数名
+示例值
+参数描述
+id
+14
+公告 ID
+请求体参数：
+参数名
+示例值
+是否必填
+参数描述
+title
+公告标题1
+是
+公告标题
+content
+公告内容
+是
+公告内容
+Axios 代码
+import
+axios
+from
+'axios'
+;
+export
+function
+updateNotice
+(
+id
+,
+data
+)
+{
+return
+axios
+.
+post
+(
+`
+/admin/notice/
+${
+id
+}
+`
+,
+data
+,
+{
+headers
+:
+{
+token
+:
+'你的用户token'
+,
+'Content-Type'
+:
+'application/x-www-form-urlencoded'
+}
+}
+)
+;
+}
+解析
+URL 是动态的：
+需要将
+id
+插入到 URL 中，使用模板字面量
+`/admin/notice/${id}`
+。
+请求方式：
+POST
+方法。
+请求头和请求体：
+同增加公告接口。
+获取公告列表接口
+接口定义
+接口 URL：
+https://your-api-domain.com/admin/notice/:page
+请求方式：
+GET
+路径参数：
+参数名
+示例值
+参数描述
+page
+1
+分页页码
+Axios 代码
+import
+axios
+from
+'axios'
+;
+export
+function
+getNoticeList
+(
+page
+)
+{
+return
+axios
+.
+get
+(
+`
+/admin/notice/
+${
+page
+}
+`
+,
+{
+headers
+:
+{
+token
+:
+'你的用户token'
+}
+}
+)
+;
+}
+解析
+URL 是动态的：
+需要将
+page
+插入到 URL 中，使用模板字面量。
+请求方式：
+GET
+方法。
+请求头：
+包含
+token
+。
+删除公告接口
+接口定义
+接口 URL：
+https://your-api-domain.com/admin/notice/:id/delete
+请求方式：
+POST
+路径参数：
+参数名
+示例值
+参数描述
+id
+14
+公告 ID
+Axios 代码
+import
+axios
+from
+'axios'
+;
+export
+function
+deleteNotice
+(
+id
+)
+{
+return
+axios
+.
+post
+(
+`
+/admin/notice/
+${
+id
+}
+/delete
+`
+,
+null
+,
+{
+headers
+:
+{
+token
+:
+'你的用户token'
+,
+'Content-Type'
+:
+'application/x-www-form-urlencoded'
+}
+}
+)
+;
+}
+解析
+URL 是动态的：
+使用模板字面量，将
+id
+插入到 URL 中。
+请求方式：
+POST
+方法。
+请求体：
+无需传递数据，传入
+null
+。
+Axios 请求的最佳实践
+1. 优先使用模板字面量处理动态 URL
+模板字面量使代码更简洁，可读性更高，尤其是在处理多个动态参数时。
+const
+id
+=
+14
+;
+const
+url
+=
+`
+/admin/notice/
+${
+id
+}
+`
+;
+// 清晰明了
+2. 确保 URL 格式正确
+在拼接 URL 时，注意斜杠
+/
+的位置，避免生成错误的路径。
+错误示例：
+const
+url
+=
+"/admin/notice"
++
+id
+;
+// 可能导致 "/admin/notice14"
+正确示例：
+const
+url
+=
+`
+/admin/notice/
+${
+id
+}
+`
+;
+3. 一致的引号使用
+保持代码风格的一致性，对于静态字符串，统一使用单引号或双引号。
+// 统一使用双引号
+const
+url
+=
+"/admin/notice"
+;
+4. 避免混用拼接方法
+在同一段代码中，避免同时使用
++
+操作符和模板字面量，以免增加代码复杂度。
+不推荐：
+const
+url
+=
+"/admin/notice/"
++
+`
+${
+id
+}
+`
+;
+推荐：
+const
+url
+=
+`
+/admin/notice/
+${
+id
+}
+`
+;
+5. 设置 Axios 的基础配置
+为了解决每次请求都需要重复设置
+baseURL
+和
+headers
+的问题，可以创建一个 Axios 实例，统一配置。
+import
+axios
+from
+'axios'
+;
+const
+instance
+=
+axios
+.
+create
+(
+{
+baseURL
+:
+'https://your-api-domain.com'
+,
+timeout
+:
+5000
+,
+headers
+:
+{
+'Content-Type'
+:
+'application/json'
+,
+token
+:
+'你的用户token'
+}
+}
+)
+;
+export
+default
+instance
+;
+在需要发送请求的文件中，直接使用这个实例：
+import
+axios
+from
+'./axiosInstance'
+;
+export
+function
+createNotice
+(
+data
+)
+{
+return
+axios
+.
+post
+(
+'/admin/notice'
+,
+data
+)
+;
+}
+6. 错误处理与拦截器
+使用 Axios 的拦截器，可以统一处理请求和响应，提高代码的健壮性。
+// 请求拦截器
+axios
+.
+interceptors
+.
+request
+.
+use
+(
+config
+=&gt;
+{
+// 在发送请求之前做些什么
+return
+config
+;
+}
+,
+error
+=&gt;
+{
+// 对请求错误做些什么
+return
+Promise
+.
+reject
+(
+error
+)
+;
+}
+)
+;
+// 响应拦截器
+axios
+.
+interceptors
+.
+response
+.
+use
+(
+response
+=&gt;
+{
+// 对响应数据做点什么
+return
+response
+;
+}
+,
+error
+=&gt;
+{
+// 对响应错误做点什么
+console
+.
+error
+(
+'请求出错：'
+,
+error
+)
+;
+return
+Promise
+.
+reject
+(
+error
+)
+;
+}
+)
+;
+总结
+在前端开发中，正确构建 Axios 请求的 URL 和参数，对于与后端的通信至关重要。通过理解字符串的构建方法，以及结合接口定义和 Axios 代码的对应关系，你可以编写出更清晰、更高效的代码。
+关键要点：
+静态 URL 使用双引号或单引号。
+动态 URL 优先使用模板字面量和
+${}
+。
+确保 URL 格式正确，注意斜杠的位置。
+代码风格一致，避免混用字符串拼接方法。
+利用 Axios 的全局配置和拦截器，提高代码的可维护性和健壮性。</description><guid isPermaLink="false">https://www.ppmy.cn/news/1540006.html</guid><pubDate>Fri, 31 Oct 2025 07:15:54 +0000</pubDate></item><item><title>精益生产现场管理和改善的具体步骤是什么？</title><link>https://www.ppmy.cn/news/1540007.html</link><description>在竞争日益激烈的今天，企业如何才能在保持高效运营的同时，不断提升产品质量与客户满意度？答案就藏在精益生产现场管理和改善之中。今天，就让我们（深圳天行健企业管理咨询公司）一同探索，从混乱无序到井然有序，实现生产现场华丽转身的五大具体步骤！
+一、准备阶段
+1. 培训教育
+对团队成员进行精益生产理念、方法和工具的培训。可以邀请专业的精益生产顾问进行授课，或者组织内部培训课程。通过培训，让团队成员了解精益生产的核心思想、价值流分析、5S 管理、标准化作业等知识。
+2. 确定目标
+与企业高层管理者沟通，明确精益生产现场管理和改善的目标。目标应该具体、可衡量、可实现、具有相关性和时间限制（SMART 原则）。例如，在一定时间内将生产效率提高一定百分比、降低废品率到特定水平等。
+二、现状分析阶段
+1. 现场观察
+团队成员深入生产现场，进行全面的观察和记录。观察内容包括人员操作、设备运行、物料流动、工作环境等方面。例如，记录员工的操作动作是否规范、设备是否存在故障、物料摆放是否整齐等。
+2. 数据收集
+收集与生产现场相关的数据，如生产周期、产量、废品率、设备停机时间等。可以通过查阅生产报表、使用传感器和数据采集设备等方式获取数据。
+3. 价值流分析
+绘制当前状态的价值流图，展示产品从原材料到成品的整个生产流程，包括物流、信息流和时间等方面的情况。价值流图可以帮助团队成员清晰地了解生产过程中的价值流动和浪费情况。
+三、改善方案制定阶段
+1. 问题分析
+针对现状分析阶段发现的问题，运用问题解决方法进行深入分析。例如，使用鱼骨图分析法找出导致废品率高的原因，可能包括设备故障、人员操作不当、原材料质量问题等。
+2. 制定改善方案
+根据问题分析的结果，制定具体的改善方案。改善方案应该具有针对性、可行性和可操作性。例如，对于设备故障问题，可以制定设备维护计划、加强设备巡检等措施；对于人员操作不当问题，可以进行培训和技能提升等。
+3. 制定实施计划
+将改善方案分解为具体的实施步骤，制定详细的实施计划。实施计划应包括任务名称、责任人、时间节点、资源需求等内容。
+四、实施阶段
+1. 试点实施
+选择一个小范围的区域或生产线进行改善方案的试点实施。通过试点实施，可以检验改善方案的可行性和有效性，及时发现并解决实施过程中出现的问题。
+2. 全面推广
+如果试点实施效果良好，就可以将改善方案在整个生产现场进行全面推广。在推广过程中，要加强对员工的培训和指导，确保员工能够正确理解和执行改善方案。
+五、巩固阶段
+1. 标准化
+将改善后的流程和操作方法进行标准化，制定相应的标准作业程序（SOP）和管理制度。标准化可以确保改善成果的持续稳定，避免出现反弹现象。
+2. 持续改善
+建立持续改善的文化和机制，鼓励员工不断提出新的改善建议和方案。可以设立奖励制度，对提出优秀改善建议的员工进行表彰和奖励。
+通过以上步骤，可以有效地实施精益生产现场管理和改善，提高生产效率、降低成本、提升产品质量，增强企业的竞争力。</description><guid isPermaLink="false">https://www.ppmy.cn/news/1540007.html</guid><pubDate>Fri, 31 Oct 2025 07:15:54 +0000</pubDate></item><item><title>qiankun 应用之间数据传递</title><link>https://www.ppmy.cn/news/1540008.html</link><description>qiankun 应用之间数据传递
+全局共享 initGlobalState
+qiankun initGlobalState API 单击前往
+qiankun 内部提供了 initGlobalState 方法用于注册 MicroAppStateActions 实例用于通信，该实例有三个方法，分别是onGlobalStateChange、setGlobalState、offGlobalStateChange。这几个方法其实看一下他们的英文就大概知道所对应做的事情了，下面直接通过一个案例演示一下
+主应用注册
+改造一下主应用的入口文件，下面是新加的和全局状态共享相关的。这里初始化了一个状态数据，并且将值给设置了，同时调用了监听改变，当值被改变后会触发对应回调。
+补充这一段代码可以抽离为一个单独的文件（就像vue3当中单独写一个store一样，然后导出这个action），然后在你的主应用页面代码当中导入之后去通过setGlobalState改变值也是一样的（haha，这样就是在vue或者jsx当中用的咯，别突然被我这个写在入口当中的困住了）
+import
+{
+registerMicroApps
+,
+start
+,
+initGlobalState
+}
+from
+'qiankun'
+;
+// 全局状态管理
+const
+state
+=
+{
+count
+:
+1
+}
+;
+const
+action
+=
+initGlobalState
+(
+state
+)
+;
+action
+.
+onGlobalStateChange
+(
+(
+value
+,
+prev
+)
+=&gt;
+{
+console
+.
+log
+(
+'main app change'
+,
+value
+,
+prev
+)
+;
+}
+)
+;
+action
+.
+setGlobalState
+(
+state
+)
+;
+子应用获取
+这里以vue3作为子应用来进行说明，同样的是对入口文件进行改造，在子应用接入qiankun的时候，我们要将对应的生命周期写上。在mount注册的时候会有一个props参数，在这个props当中就有我们所需要的全局共享对象。
+let
+app
+:
+any
+;
+if
+(
+!
+qiankunWindow
+.
+__POWERED_BY_QIANKUN__
+)
+{
+createApp
+(
+App
+)
+.
+use
+(
+router
+)
+.
+use
+(
+ElementPlus
+)
+.
+mount
+(
+'#app'
+)
+;
+}
+else
+{
+renderWithQiankun
+(
+{
+mount
+(
+props
+)
+{
+app
+=
+createApp
+(
+App
+)
+.
+use
+(
+router
+)
+.
+use
+(
+ElementPlus
+)
+;
+app
+.
+mount
+(
+props
+.
+container
+?.
+querySelector
+(
+'#app'
+)
+)
+;
+console
+.
+log
+(
+'vue app mount get props'
+,
+props
+)
+;
+props
+.
+onGlobalStateChange
+(
+(
+state
+:
+any
+,
+prev
+:
+any
+)
+=&gt;
+console
+.
+log
+(
+`
+vue 子应用 [onGlobalStateChange -
+${
+props
+.
+name
+}
+]:
+`
+,
+state
+,
+prev
+)
+)
+;
+props
+.
+setGlobalState
+(
+{
+count
+:
+100
+}
+)
+;
+}
+,
+// bootstrap、update、unmount三个生命周期省略。。。。
+}
+)
+;
+}
+优化
+在子应用当中我们也可以把这个action单独抽离出来封装一下
+function
+emptyAction
+(
+)
+{
+// 警告：提示当前使用的是空 Action
+console
+.
+warn
+(
+"Current execute action is empty!"
+)
+;
+}
+class
+Actions
+{
+// 默认值为空 Action
+actions
+=
+{
+onGlobalStateChange
+:
+emptyAction
+,
+setGlobalState
+:
+emptyAction
+}
+;
+/*** 设置 actions*/
+setActions
+(
+actions
+)
+{
+this
+.
+actions
+=
+actions
+;
+}
+/*** 映射*/
+onGlobalStateChange
+(
+...
+args
+)
+{
+return
+this
+.
+actions
+.
+onGlobalStateChange
+(
+...
+args
+)
+;
+}
+/*** 映射*/
+setGlobalState
+(
+...
+args
+)
+{
+return
+this
+.
+actions
+.
+setGlobalState
+(
+...
+args
+)
+;
+}
+}
+const
+actions
+=
+new
+Actions
+(
+)
+;
+export
+default
+actions
+;
+然后还是在入口文件的mount生命周期当中把props的action赋值给我们包的这个actions，也就是下面这样，然后再在其他地方用的时候导入这个actions就好了
+import
+actions
+from
+'./action.js'
+;
+actions
+.
+setActions
+(
+props
+)
+;
+观察者模式 &amp; 发布订阅
+js设计模式-观察者&amp;发布订阅 单击前往
+可以利用观察者模式或者发布订阅将数据给绑定在windows下，然后进行对应的监听处理
+Props传值
+在主应用当中注册子应用的时候可以通过props来进行值传递
+registerMicroApps
+(
+[
+{
+name
+:
+'react app'
+,
+// app name registered
+entry
+:
+'//localhost:7100'
+,
+container
+:
+'#yourContainer'
+,
+activeRule
+:
+'/yourActiveRule'
+,
+// 通过这个将myData传递，子应用在mount中可以拿到这个prop里面的值
+props
+:
+myData
+}
+]
+)
+;
+骚操作
+localStorage
+反正不管什么都往这里面塞，要拿的时候再从这里面拿
+window
+把要传的值挂载到window全局上，要拿的时候来window上拿</description><guid isPermaLink="false">https://www.ppmy.cn/news/1540008.html</guid><pubDate>Fri, 31 Oct 2025 07:15:54 +0000</pubDate></item></channel></rss>
