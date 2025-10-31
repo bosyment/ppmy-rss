@@ -39,8 +39,10 @@ jobs:
       - name: 运行爬虫
         run: python crawler.py
 
-      - name: 提交更新
+      - name: Commit generated RSS
         uses: EndBug/add-and-commit@v9
         with:
+          author_name: "ppmy-rss-bot"
+          author_email: "41898282+github-actions[bot]@users.noreply.github.com"
           message: "自动更新 RSS: $(date -u +'%Y-%m-%d %H:%M:%S') UTC"
-          add: 'ppmy_rss.xml'
+          add: "docs/ppmy_rss.xml"
