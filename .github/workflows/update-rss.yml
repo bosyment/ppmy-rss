@@ -45,4 +45,7 @@ jobs:
           author_name: "ppmy-rss-bot"
           author_email: "41898282+github-actions[bot]@users.noreply.github.com"
           message: "自动更新 RSS: $(date -u +'%Y-%m-%d %H:%M:%S') UTC"
-          add: "docs/ppmy_rss.xml"
+          add: |
+            docs/ppmy_rss.xml
+            last_id.json
+          push: true
