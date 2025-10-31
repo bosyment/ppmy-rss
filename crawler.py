@@ -26,8 +26,7 @@ def read_last_id():
     if os.path.exists(LAST_ID_FILE):
         with open(LAST_ID_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-            return data.get("last_id", 1540000)
-    return 1540000  # 默认起始编号
+            return data.get("last_id")
 
 def write_last_id(last_id):
     with open(LAST_ID_FILE, "w", encoding="utf-8") as f:
