@@ -1,177 +1,115 @@
-# -*- coding: utf-8 -*-
-import requests, time, re, json, os
+import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
-from urllib.parse import urljoin
+from feedgen.feed import FeedGenerator
+import datetime
+import time
+import random
+import os
 
-HERE = os.path.abspath(os.path.dirname(__file__))
-CFG = json.load(open(os.path.join(HERE, "config.json"), "r", encoding="utf-8"))
+# 基础 URL
+BASE_URL = "https://www.ppmy.cn/news/"
+ARTICLE_URL_TEMPLATE = BASE_URL + "{}.html"
 
-session = requests.Session()
-session.headers.update({"User-Agent": CFG.get("user_agent")})
+# 文件
+RSS_FILE = "ppmy_rss.xml"
+LAST_ID_FILE = "last_id.txt"
 
-def fetch(url, allow_404=False):
+# User-Agent 伪装浏览器
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+}
+
+# 每次最多尝试抓取的文章数量
+MAX_TRY = 20
+
+# 读取上次抓取的最后文章编号
+def read_last_id():
+    if os.path.exists(LAST_ID_FILE):
+        with open(LAST_ID_FILE, "r") as f:
+            try:
+                return int(f.read().strip())
+            except:
+                return 0
+    return 0
+
+# 更新最后抓取编号
+def update_last_id(last_id):
+    with open(LAST_ID_FILE, "w") as f:
+        f.write(str(last_id))
+
+# 抓取文章内容和标题
+def fetch_article(article_id, session):
+    url = ARTICLE_URL_TEMPLATE.format(article_id)
     try:
-        r = session.get(url, timeout=15)
-        r.encoding = r.apparent_encoding or 'utf-8'
-        if r.status_code == 403:
-            print("[WARN] 403 for", url)
+        resp = session.get(url, headers=HEADERS, timeout=10)
+        if resp.status_code != 200:
             return None
-        if r.status_code == 404 and not allow_404:
-            return None
-        if r.status_code >= 400:
-            print("[WARN] status", r.status_code, "for", url)
-            return None
-        return r.text
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        # 解析标题
+        title_tag = soup.find("title")
+        title = title_tag.get_text(strip=True) if title_tag else f"文章 {article_id}"
+
+        # 解析正文（可根据实际页面调整）
+        content_tag = soup.find("div", class_="article-content")
+        if not content_tag:
+            content_tag = soup.find("div", id="content")
+        content = content_tag.get_text(strip=True) if content_tag else ""
+
+        return {"id": article_id, "title": title, "link": url, "content": content}
+
     except Exception as e:
-        print("fetch error", e, "->", url)
+        print(f"抓取文章 {article_id} 出错: {e}")
         return None
 
-def extract_links_from_html(html):
-    if not html:
-        return []
-    soup = BeautifulSoup(html, "html.parser")
-    anchors = soup.find_all("a", href=True)
-    links = []
-    for a in anchors:
-        href = a['href']
-        # 只取 /news/{数字}.html 类型
-        if re.search(r'/news/\d+\.html', href):
-            links.append(href)
-    return list(dict.fromkeys(links))  # 去重并保留顺序
-
-def parse_article(url):
-    html = fetch(url)
-    if not html:
-        return None
-    soup = BeautifulSoup(html, "html.parser")
-    # 尝试抓标题
-    title = ""
-    if soup.title and soup.title.string:
-        title = soup.title.string.strip()
-    h1 = soup.find(["h1","h2"])
-    if h1 and not title:
-        title = h1.text.strip()
-    # 描述：优先 meta description，再取正文前几段
-    desc = ""
-    meta = soup.find("meta", attrs={"name":"description"}) or soup.find("meta", attrs={"property":"og:description"})
-    if meta and meta.get("content"):
-        desc = meta["content"].strip()
-    else:
-        # 尝试抽取正文中第一段
-        article = soup.find("div", class_=re.compile(r'article|content|news', re.I)) or soup
-        p = article.find("p")
-        if p:
-            desc = p.get_text().strip()[:400]
-    # pubDate 尝试从页面中提取日期
-    pubDate = None
-    time_texts = soup.find_all(text=re.compile(r'\d{4}[-/]\d{1,2}[-/]\d{1,2}'))
-    if time_texts:
-        pubDate = time_texts[0].strip()
-    # 转成 RFC 822 格式（若无法解析，使用现在时间）
-    try:
-        if pubDate:
-            dt = datetime.strptime(re.sub(r'[年月日]','-', pubDate.split()[0]).strip(), "%Y-%m-%d")
-        else:
-            dt = datetime.utcnow()
-    except Exception:
-        dt = datetime.utcnow()
-    rfc822 = dt.strftime("%a, %d %b %Y %H:%M:%S GMT")
-    return {"title": title or url, "link": url, "description": desc, "pubDate": rfc822}
-
-def build_rss(items, title="PPMY 新闻订阅", link=CFG.get("base_url")):
-    now = datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
-    rss = '<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0">\n<channel>\n'
-    rss += f"<title>{title}</title>\n<link>{link}</link>\n<description>自动生成的 PPMY 新闻订阅</description>\n<lastBuildDate>{now}</lastBuildDate>\n"
-    for it in items:
-        rss += "<item>\n"
-        rss += f"<title>{escape_xml(it['title'])}</title>\n"
-        rss += f"<link>{it['link']}</link>\n"
-        rss += "<description><![CDATA[" + (it['description'] or '') + "]]></description>\n"
-        rss += f"<pubDate>{it['pubDate']}</pubDate>\n"
-        rss += "</item>\n"
-    rss += "</channel>\n</rss>\n"
-    return rss
-
-def escape_xml(s):
-    return (s.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;") if s else s)
-
-def find_articles_via_list():
-    base = CFG["base_url"]
-    links = []
-    for p in CFG.get("list_pages", []):
-        full = urljoin(base, p)
-        print("尝试抓取列表页：", full)
-        html = fetch(full)
-        if not html:
-            print("列表页不可用：", full)
-            continue
-        found = extract_links_from_html(html)
-        for f in found:
-            links.append(urljoin(base, f))
-        time.sleep(CFG.get("delay_seconds", 1))
-    return list(dict.fromkeys(links))
-
-def scan_by_number():
-    base = CFG["base_url"]
-    pattern = CFG["article_path_pattern"]
-    start = CFG.get("scan_start", 2000000)
-    window = CFG.get("scan_window", 500)
-    max_fail = CFG.get("max_consecutive_failures", 30)
-    discovered = []
-    consecutive_fail = 0
-    # 从 start 向下扫描
-    i = start
-    tried = 0
-    while tried < window and consecutive_fail < max_fail:
-        url = urljoin(base, pattern.format(id=i))
-        html = fetch(url, allow_404=True)
-        tried += 1
-        if html:
-            discovered.append(url)
-            consecutive_fail = 0
-            print("发现文章：", url)
-        else:
-            consecutive_fail += 1
-        i -= 1
-        time.sleep(CFG.get("delay_seconds", 1))
-    return list(dict.fromkeys(discovered))
-
-def dedupe_preserve_order(seq):
-    seen=set(); out=[]
-    for x in seq:
-        if x not in seen:
-            out.append(x); seen.add(x)
-    return out
-
+# 主函数
 def main():
-    mode = CFG.get("scan_mode","hybrid")
-    found_links = []
-    if mode in ("list","hybrid"):
-        found_links += find_articles_via_list()
-    if mode in ("scan","hybrid"):
-        # 若 list 没抓到或 hybrid 都尝试扫描
-        found_links += scan_by_number()
-    found_links = dedupe_preserve_order(found_links)
-    print("总共发现文章数：", len(found_links))
-    # 限制 items 数量与顺序（最新优先：按 URL 中数字降序）
-    def get_id(u):
-        m = re.search(r'/news/(\d+)\.html', u)
-        return int(m.group(1)) if m else 0
-    found_links.sort(key=lambda x: get_id(x), reverse=True)
-    found_links = found_links[:CFG.get("max_items",50)]
-    items = []
-    for link in found_links:
-        print("解析：", link)
-        art = parse_article(link)
-        if art:
-            items.append(art)
-        time.sleep(CFG.get("delay_seconds", 1))
-    rss_text = build_rss(items)
-    outpath = os.path.join(HERE, "docs", "ppmy_rss.xml")
-    with open(outpath, "w", encoding="utf-8") as f:
-        f.write(rss_text)
-    print("生成 RSS 到：", outpath)
+    last_id = read_last_id()
+    print(f"上次抓取文章编号: {last_id}")
+
+    session = requests.Session()
+    articles = []
+
+    # 增量抓取
+    for i in range(last_id + 1, last_id + 1 + MAX_TRY):
+        print(f"尝试抓取文章 {i} ...")
+        art = fetch_article(i, session)
+        if not art:
+            print(f"文章 {i} 不存在或无法访问，停止抓取")
+            break
+        articles.append(art)
+
+        # 随机延时 1~3 秒，防止被封
+        time.sleep(random.uniform(1, 3))
+
+    if not articles:
+        print("没有新文章可抓取")
+        return
+
+    # 更新最后抓取编号
+    new_last_id = max(art["id"] for art in articles)
+    update_last_id(new_last_id)
+    print(f"更新 last_id 为 {new_last_id}")
+
+    # 生成 RSS
+    fg = FeedGenerator()
+    fg.title("PPMY 新闻订阅")
+    fg.link(href=BASE_URL)
+    fg.description("自动抓取 https://www.ppmy.cn/news/ 最新文章")
+    fg.language("zh-cn")
+    fg.lastBuildDate(datetime.datetime.utcnow())
+
+    # 文章条目
+    for art in articles:
+        fe = fg.add_entry()
+        fe.id(str(art["id"]))
+        fe.title(art["title"])
+        fe.link(href=art["link"])
+        fe.description(art["content"])
+        fe.pubDate(datetime.datetime.utcnow())
+
+    fg.rss_file(RSS_FILE)
+    print(f"已抓取 {len(articles)} 篇新文章，生成 {RSS_FILE}")
 
 if __name__ == "__main__":
     main()
